@@ -1,0 +1,19 @@
+# ClaimBoard — Render Blueprint
+services:
+  - type: web
+    name: claimboard
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    disk:
+      name: claimboard-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: CLAIMBOARD_OWNER_PASSWORD
+        sync: false
+      - key: CLAIMBOARD_SESSION_SECRET
+        generateValue: true
+      - key: CLAIMBOARD_DB
+        value: /data/claimboard.db
