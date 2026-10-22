@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ClaimBoard — Ken's Claims</title>
+<meta name="theme-color" content="#071a10">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ClaimBoard">
+<style>
+:root{--bg:#070d1a;--panel:#0d1626;--panel2:#111e33;--line:#1e3355;--txt:#e2e8f0;--mut:#8ca3c3;--gold:#fbbf24;--green:#4ade80;--acc:#38bdf8}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{padding:16px 18px;background:linear-gradient(90deg,#071a10,#14532d);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+h1{margin:0;font-size:22px}.sub{color:#a7c4ae;font-size:13px;margin-top:3px}
+main{max-width:980px;margin:0 auto;padding:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:6px 0 14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}.card b{font-size:27px;display:block}.card span{color:var(--mut);font-size:13px}
+button{background:var(--acc);color:#04121f;border:0;padding:8px 13px;border-radius:9px;font-weight:700;cursor:pointer;font-size:13px}
+button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}button.yes{background:#16a34a;color:#fff}button.no{background:#7f1d1d;color:#fff}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+td,th{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;text-transform:uppercase;white-space:nowrap}
+.found{background:#1e3a5f;color:#bfdbfe}.confirmed{background:#155e75;color:#cffafe}.filed{background:#14532d;color:#bbf7d0}.docs_submitting{background:#713f12;color:#fde68a}.paid{background:#4ade80;color:#052e16}.closed{background:#475569;color:#e2e8f0}.not_mine{background:#7f1d1d;color:#fecaca}
+.mut{color:var(--mut);font-size:13px}a{color:var(--acc)}h2{margin:22px 0 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.urgent{color:#f87171;font-weight:700}
+#liveDot{display:inline-block;width:9px;height:9px;border-radius:99px;background:#4ade80;margin-right:6px}
+input{background:#0a1424;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:9px}
+#installTip{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:14px}
+</style></head>
+<body>
+<header><div class="row" style="justify-content:space-between"><div><h1>💰 ClaimBoard</h1><div class="sub"><span id="liveDot"></span>Live — numbers come straight from the database, refreshed automatically.</div></div>
+<div class="row"><span id="me" class="mut"></span><button class="ghost" id="loginBtn">Owner login</button></div></div></header>
+<main>
+<div class="cards">
+  <div class="card"><span>💵 Paid to you (real money received)</span><b style="color:var(--green)" id="cPaid">$0</b><span id="cPaidN"></span></div>
+  <div class="card"><span>📨 Filed &amp; in the pipeline</span><b style="color:var(--gold)" id="cPipe">$0</b><span>face value of filed claims</span></div>
+  <div class="card"><span>✅ You confirmed — filing next</span><b style="color:var(--acc)" id="cConf">0</b><span>claims you said yes to</span></div>
+  <div class="card"><span>🔎 Found, waiting on you</span><b id="cFound">0</b><span>no-proof claims from the daily sweep</span></div>
+</div>
+
+<h2>🏛️ State unclaimed-property claims</h2>
+<div id="stateWrap"></div>
+
+<h2>🔎 No-proof settlement claims</h2>
+<p class="mut">Found by the daily Claim Finder sweep. If one is genuinely true for you, log in as owner and tap <b>“Yes — that's me”</b> — it flips to Confirmed and Milli files it. “Not mine” clears it off your board.</p>
+<div id="settleWrap"></div>
+
+<div id="installTip">
+<b>📱 Put ClaimBoard on your home screen:</b>
+<div class="mut" style="margin-top:6px"><b>iPhone:</b> tap the Share button → <b>Add to Home Screen</b> → Add. It opens full-screen like an app.<br><b>Android:</b> tap the ⋮ menu → <b>Install app</b> / Add to Home screen.</div>
+</div>
+<p class="mut" style="text-align:center;margin-top:16px">ClaimBoard v1.0 · Estimates are the settlements' published figures, never promises · “Paid” counts only money actually received · Daily sweep ~8:39 AM CT adds new finds automatically.</p>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+let owner=false;
+function daysLeft(d){if(!d)return null;const ms=new Date(d+'T23:59:59')-new Date();return Math.ceil(ms/86400000);}
+function badge(st){return `<span class="badge ${st}">${st.replace('_',' ')}</span>`}
+function rowHtml(r,actions){
+  const dl=daysLeft(r.deadline);const urg=dl!==null&&dl>=0&&dl<=14;
+  const dlTxt=r.deadline?`${esc(r.deadline)}${urg?` <span class="urgent">(${dl} days!)</span>`:''}`:'—';
+  const name=r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>`:esc(r.name);
+  return `<tr><td><b>${name}</b><div class="mut">${esc(r.note||'')}</div></td><td>${esc(r.estimate_label||'')}</td><td>${dlTxt}</td><td>${badge(r.status)}</td><td>${actions||''}</td></tr>`;
+}
+async function load(){
+  const [claims,sum,meR]=await Promise.all([fetch('/api/claims').then(r=>r.json()),fetch('/api/summary').then(r=>r.json()),fetch('/api/me').then(r=>r.json())]);
+  owner=meR.owner;$('#me').textContent=owner?'Owner: logged in':'';$('#loginBtn').textContent=owner?'Log out':'Owner login';
+  $('#cPaid').textContent=money(sum.paid_total);$('#cPaidN').textContent=sum.counts.paid?sum.counts.paid+' claim(s) paid':'nothing has paid out yet';
+  $('#cPipe').textContent=money(sum.pipeline_total);$('#cConf').textContent=sum.counts.confirmed;$('#cFound').textContent=sum.counts.found;
+  const states=claims.filter(c=>c.kind==='state'), settles=claims.filter(c=>c.kind!=='state');
+  $('#stateWrap').innerHTML='<table><tr><th>Claim</th><th>Amount</th><th>Deadline</th><th>Status</th><th></th></tr>'+states.map(r=>rowHtml(r,'')).join('')+'</table>';
+  $('#settleWrap').innerHTML='<table><tr><th>Claim</th><th>Est. payout</th><th>Deadline</th><th>Status</th><th>Your call</th></tr>'+settles.map(r=>{
+    let acts='<span class="mut">—</span>';
+    if(owner&&(r.status==='found'))acts=`<div class="row"><button class="yes" onclick="setStatus('${r.slug}','confirmed')">✓ Yes — that's me</button><button class="no" onclick="setStatus('${r.slug}','not_mine')">✗ Not mine</button></div>`;
+    else if(owner&&(r.status==='confirmed'))acts=`<span class="mut">Queued for filing</span>`;
+    return rowHtml(r,acts);}).join('')+'</table>';
+}
+window.setStatus=async(slug,status)=>{const r=await fetch('/api/claims/'+slug,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});if(r.ok)load();else alert('Could not update — are you logged in as owner?');};
+$('#loginBtn').onclick=async()=>{if(owner){await fetch('/api/logout',{method:'POST'});load();return;}const p=prompt('Owner password:');if(!p)return;const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p})});if(r.ok)load();else alert('Wrong password.');};
+load(); setInterval(load, 30000);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
+</script></body></html>
