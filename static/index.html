@@ -43,6 +43,14 @@ select,input{background:#0a1424;color:var(--txt);border:1px solid var(--line);bo
   <div class="card"><span>🔎 Found, waiting on you</span><b id="cFound">0</b><span>no-proof claims from the daily sweep</span></div>
 </div>
 
+<div style="background:linear-gradient(90deg,#1a1405,#29200a);border:1px solid var(--gold);border-radius:14px;padding:16px;margin:4px 0 6px">
+  <div class="mut" style="color:#d8b84a">🧮 ESTIMATED PAYOUT — everything you've confirmed, once filed &amp; fully processed</div>
+  <div style="font-size:30px;font-weight:800;margin:4px 0">about <span id="estBest" style="color:var(--gold)">$0</span></div>
+  <div class="mut" id="estRange">likely between $0 and $0</div>
+  <div class="mut" id="estExtra" style="margin-top:4px"></div>
+  <div class="mut" style="margin-top:6px;font-size:12px">How this estimate works: your state money counts at its real amounts (CA low end leaves out the disputed $72 item; Texas low end assumes the royalty shared with your aunt gets split). Flat settlements count in full, published ranges count as printed, and "up to $X" settlements count at a realistic slice — final checks are split among everyone who files, so almost nobody gets the headline max. Claims with no published payout aren't counted in dollars.</div>
+</div>
+
 <div id="loginBanner">👆 <b>To get your ✓ Confirm / ✗ Deny buttons:</b> tap <b>Owner login</b> (top right) and enter your password. Every claim below then gets its own big Confirm and Deny buttons. Confirming a claim puts it straight into Milli's filing queue — it gets filed for you, and its status and expected money update here live.</div>
 
 <div class="row" style="margin:14px 0 4px">
@@ -67,7 +75,7 @@ select,input{background:#0a1424;color:var(--txt);border:1px solid var(--line);bo
 <b>📱 Put ClaimBoard on your home screen:</b>
 <div class="mut" style="margin-top:6px"><b>iPhone:</b> tap the Share button → <b>Add to Home Screen</b> → Add. It opens full-screen like an app.<br><b>Android:</b> tap the ⋮ menu → <b>Install app</b> / Add to Home screen.</div>
 </div>
-<p class="mut" style="text-align:center;margin-top:16px">ClaimBoard v1.1 · Estimates are the settlements' published figures, never promises · “Paid” counts only money actually received · Daily sweep ~8:39 AM CT adds new finds automatically.</p>
+<p class="mut" style="text-align:center;margin-top:16px">ClaimBoard v1.2 · Estimates are conservative ranges, never promises · “Paid” counts only money actually received · Daily sweep ~8:39 AM CT adds new finds automatically.</p>
 </main>
 <div id="flashWrap"></div>
 <script>
@@ -90,7 +98,10 @@ function rowHtml(r,actions){
   const dl=daysLeft(r.deadline);const urg=dl!==null&&dl>=0&&dl<=14;
   const dlTxt=r.deadline?`${esc(r.deadline)}${urg?` <span class="urgent">(${dl} days!)</span>`:''}`:'—';
   const name=r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>`:esc(r.name);
-  return `<tr><td><b>${name}</b><div class="mut">${esc(r.note||'')}</div></td><td>${esc(r.estimate_label||'')}</td><td>${dlTxt}</td><td>${badge(r.status)}</td><td>${actions||''}</td></tr>`;
+  let est='';
+  if(r.est_low!==null&&r.est_low!==undefined)est=`<div class="mut">est. payout: <b style="color:var(--gold)">${r.est_low===r.est_high?money(r.est_low):money(r.est_low)+' – '+money(r.est_high)}</b></div>`;
+  else if(['confirmed','filed','docs_submitting','found'].includes(r.status))est=`<div class="mut">est. payout: not published — not counted</div>`;
+  return `<tr><td><b>${name}</b><div class="mut">${esc(r.note||'')}</div></td><td>${esc(r.estimate_label||'')}${est}</td><td>${dlTxt}</td><td>${badge(r.status)}</td><td>${actions||''}</td></tr>`;
 }
 function render(){
   const states=sortClaims(allClaims.filter(c=>c.kind==='state')), settles=sortClaims(allClaims.filter(c=>c.kind!=='state'));
@@ -111,6 +122,9 @@ async function load(){
     $('#me').textContent=owner?'Owner: logged in ✓':'';$('#loginBtn').textContent=owner?'Log out':'Owner login';
     $('#cPaid').textContent=money(sum.paid_total);$('#cPaidN').textContent=sum.counts.paid?sum.counts.paid+' claim(s) paid':'nothing has paid out yet';
     $('#cPipe').textContent=money(sum.pipeline_total);$('#cConf').textContent=sum.counts.confirmed;$('#cFound').textContent=sum.counts.found;
+    $('#estBest').textContent=money(sum.est_best_total);
+    $('#estRange').textContent=`likely between ${money(sum.est_low_total)} and ${money(sum.est_high_total)} — across ${sum.est_priced_count} priced claims you've approved`;
+    $('#estExtra').textContent=(sum.est_unpriced_count?`${sum.est_unpriced_count} approved claim(s) have no published payout, so they add $0 to this estimate (anything they pay is a bonus). `:'')+(sum.found_est_high>0?`Still waiting on you: +${money(sum.found_est_low)} – ${money(sum.found_est_high)} more if you confirm the rest.`:'')+(sum.paid_total>0?` Plus ${money(sum.paid_total)} already paid to you.`:'');
     $('#upd').textContent='Updated '+new Date().toLocaleTimeString();
     render();
   }catch(e){/* keep last good render */}
